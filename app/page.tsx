@@ -1,4 +1,3 @@
-'use strict';
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -144,23 +143,46 @@ export default function SOSAccessibleApp() {
     return () => clearInterval(timer);
   }, []);
 
-  // Geolocalização Real
+  // Geolocalização Real — watchPosition contínuo + reverse geocoding
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude.toFixed(4);
-          const lng = pos.coords.longitude.toFixed(4);
-          const acc = Math.round(pos.coords.accuracy);
-          setCoordinates(`Lat: ${lat}° | Long: ${lng}°`);
-          setGpsAccuracy(`±${acc}m`);
-        },
-        () => {
-          // Mantém as coordenadas de demonstração de alta precisão
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    }
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = Math.round(pos.coords.accuracy);
+        setCoordinates(`Lat: ${lat.toFixed(4)}° | Long: ${lng.toFixed(4)}°`);
+        setGpsAccuracy(`±${acc}m`);
+
+        // Reverse geocoding via Nominatim (OpenStreetMap) — sem chave de API
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=pt-BR`,
+            { headers: { 'Accept-Language': 'pt-BR' } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address;
+            const road = addr.road || addr.pedestrian || addr.footway || '';
+            const num = addr.house_number ? `, ${addr.house_number}` : '';
+            const suburb = addr.suburb || addr.neighbourhood || addr.quarter || '';
+            const city = addr.city || addr.town || addr.village || '';
+            const state = addr.state_code || addr.state || '';
+            const formatted = [road + num, suburb, city, state].filter(Boolean).join(' - ');
+            if (formatted) setCurrentAddress(formatted);
+          }
+        } catch {
+          // Mantém endereço de demonstração se falhar
+        }
+      },
+      () => {
+        // Permissão negada — mantém coordenadas de demonstração
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   // Iniciar / Parar Câmera Real para Libras
