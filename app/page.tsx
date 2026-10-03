@@ -27,6 +27,9 @@ import {
   Edit2,
   Lock,
   VolumeX,
+  Crosshair,
+  RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 
 type TabType = 'SOS' | 'Triagem' | 'Atendimento' | 'Perfil';
